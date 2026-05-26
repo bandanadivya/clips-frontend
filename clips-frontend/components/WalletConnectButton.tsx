@@ -10,10 +10,16 @@ interface WalletConnectButtonProps {
 }
 
 export default function WalletConnectButton({ compact = false }: WalletConnectButtonProps) {
-  const { isConnected, isConnecting, address, error, connectMetaMask, disconnect, clearError } =
+  const { isConnected, isConnecting, isRestoringSession, address, error, connectMetaMask, disconnect, clearError } =
     useWallet();
 
   if (compact) {
+    if (isRestoringSession) {
+      return (
+        <div className="w-[130px] h-9 rounded-xl bg-white/6 animate-pulse" />
+      );
+    }
+
     return (
       <div className="relative flex flex-col items-end gap-2">
         {isConnected && address ? (
@@ -28,7 +34,7 @@ export default function WalletConnectButton({ compact = false }: WalletConnectBu
               onClick={disconnect}
               title="Disconnect wallet"
               aria-label="Disconnect wallet"
-              className="p-2 rounded-xl bg-white/[0.03] border border-white/5 text-muted-foreground hover:text-red-400 hover:border-red-400/20 transition-all"
+              className="p-2 rounded-xl bg-white/3 border border-white/5 text-muted-foreground hover:text-red-400 hover:border-red-400/20 transition-all"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -64,6 +70,10 @@ export default function WalletConnectButton({ compact = false }: WalletConnectBu
   }
 
   // Full-size variant (used in platform cards / standalone pages)
+  if (isRestoringSession) {
+    return <div className="w-full h-14 rounded-xl bg-white/6 animate-pulse" />;
+  }
+
   return (
     <div className="flex flex-col gap-3 w-full">
       {error && (

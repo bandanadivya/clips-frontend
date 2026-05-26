@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User } from "../app/lib/mockApi";
 import { useRouter, usePathname } from "next/navigation";
-import { useUserStore } from "@/app/store";
+import { useUserStore, useDashboardStore, useEarningsStore } from "@/app/store";
 import { useSession, signOut } from "next-auth/react";
 
 interface AuthContextType {
@@ -30,6 +30,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setProfile = useUserStore((state) => state.setProfile);
   const clearUser = useUserStore((state) => state.clearUser);
   const { data: session, status } = useSession();
+
+  // Restore user session from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("clipcash_user");
+      if (stored) {
+        const parsed: User = JSON.parse(stored);
+        setUserState(parsed);
+        setProfile({
+          id: parsed.id,
+          name: parsed.name || parsed.username || "User",
+          email: parsed.email,
+          avatarUrl: null,
+          plan: "pro" as const,
+          planUsagePercent: 80,
+        });
+        // Prefetch data in the background so it's ready when user lands on dashboard
+        useDashboardStore.getState().fetchDashboard();
+        useEarningsStore.getState().fetchEarnings();
+      }
+    } catch {
+      // Ignore malformed storage
+    } finally {
+      setIsLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
  useEffect(() => {
   if (isLoading) return;
@@ -87,6 +114,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         planUsagePercent: 80,
       };
       setProfile(userProfile);
+      // Kick off background prefetch so data is ready when user lands on dashboard/earnings
+      useDashboardStore.getState().fetchDashboard();
+      useEarningsStore.getState().fetchEarnings();
     } else {
       localStorage.removeItem("clipcash_user");
       clearUser();

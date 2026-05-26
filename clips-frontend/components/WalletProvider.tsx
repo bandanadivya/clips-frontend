@@ -33,6 +33,7 @@ export interface WalletState {
   walletType: WalletType | null;
   isConnected: boolean;
   isConnecting: boolean;
+  isRestoringSession: boolean;
   error: string | null;
 }
 
@@ -51,11 +52,13 @@ const defaultState: WalletState = {
   walletType: null,
   isConnected: false,
   isConnecting: false,
+  isRestoringSession: true,
   error: null,
 };
 
 const WalletContext = createContext<WalletContextType>({
   ...defaultState,
+  isRestoringSession: false,
   connectMetaMask: async () => {},
   connectPhantom: async () => {},
   disconnect: () => {},
@@ -81,24 +84,32 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Restore persisted session on mount
   useEffect(() => {
-    try {
-      secureStorage.getItem(STORAGE_KEY).then((stored) => {
+    secureStorage
+      .getItem(STORAGE_KEY)
+      .then((stored) => {
         if (stored) {
-          const parsed: Partial<WalletState> = JSON.parse(stored);
-          if (parsed.address && parsed.walletType) {
-            setState((prev: WalletState) => ({
-              ...prev,
-              address: parsed.address!,
-              chainId: parsed.chainId ?? null,
-              walletType: parsed.walletType!,
-              isConnected: true,
-            }));
+          try {
+            const parsed: Partial<WalletState> = JSON.parse(stored);
+            if (parsed.address && parsed.walletType) {
+              setState((prev: WalletState) => ({
+                ...prev,
+                address: parsed.address!,
+                chainId: parsed.chainId ?? null,
+                walletType: parsed.walletType!,
+                isConnected: true,
+                isRestoringSession: false,
+              }));
+              return;
+            }
+          } catch {
+            // Ignore malformed storage
           }
         }
+        setState((prev: WalletState) => ({ ...prev, isRestoringSession: false }));
+      })
+      .catch(() => {
+        setState((prev: WalletState) => ({ ...prev, isRestoringSession: false }));
       });
-    } catch {
-      // Ignore malformed storage
-    }
   }, []);
 
   // Listen for MetaMask account / chain changes
