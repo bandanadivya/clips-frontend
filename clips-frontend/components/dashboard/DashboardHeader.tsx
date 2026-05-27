@@ -206,10 +206,8 @@ export default function DashboardHeader({ onMenuClick }: HeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="hidden sm:block">
-          <WalletConnectButton compact />
-        </div>
+      <div className="flex items-center gap-2 sm:gap-4">
+        <WalletConnectButton compact />
 
         <button 
           onClick={toggleTheme}

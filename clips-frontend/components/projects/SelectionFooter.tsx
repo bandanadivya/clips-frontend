@@ -2,11 +2,9 @@
 
 import React, { useState } from "react";
 import { 
-  Send, 
   Trash2, 
   Download, 
   Zap, 
-  MoveRight,
   Hexagon,
   Info,
   AlertCircle,
@@ -183,7 +181,10 @@ export default function SelectionFooter({
               }`}
             >
               {isMinting ? (
-                <span>Minting...</span>
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Minting…</span>
+                </>
               ) : (
                 <>
                   <span>Mint Selected Clips</span>

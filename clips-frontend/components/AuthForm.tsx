@@ -46,6 +46,7 @@ export default function AuthForm({ mode = "login" }: AuthFormProps) {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [resetMessage, setResetMessage] = useState(false);
 
@@ -84,7 +85,8 @@ export default function AuthForm({ mode = "login" }: AuthFormProps) {
     try {
       if (currentMode === "login") {
         const res = await MockApi.login(email, password);
-        setUser(res.user);
+        setSuccess(true);
+        setTimeout(() => setUser(res.user), 600);
       } else {
         // 1. Create the user account
         const res = await MockApi.signup(email, password, fullName);
@@ -279,8 +281,12 @@ export default function AuthForm({ mode = "login" }: AuthFormProps) {
 
         <button 
           type="submit" 
-          disabled={loading}
-          className="w-full bg-brand hover:bg-brand-hover text-black py-[15px] rounded-[12px] font-bold text-[15px] flex justify-center items-center gap-2 transition-all disabled:opacity-70 mt-[6px]"
+          disabled={loading || success}
+          className={`w-full py-[15px] rounded-[12px] font-bold text-[15px] flex justify-center items-center gap-2 transition-all mt-[6px] ${
+            success
+              ? "bg-brand/20 border border-brand/40 text-brand cursor-default"
+              : "bg-brand hover:bg-brand-hover text-black disabled:opacity-70"
+          }`}
         >
           {loading ? (
             <span className="flex items-center gap-2">

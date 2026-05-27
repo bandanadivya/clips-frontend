@@ -10,6 +10,12 @@ interface WalletConnectButtonProps {
   compact?: boolean;
 }
 
+/** Detects whether MetaMask is installed in the browser */
+function isMetaMaskInstalled(): boolean {
+  if (typeof window === "undefined") return false;
+  return Boolean(window.ethereum?.isMetaMask);
+}
+
 export default function WalletConnectButton({ compact = false }: WalletConnectButtonProps) {
   const {
     isConnected,
@@ -66,6 +72,33 @@ export default function WalletConnectButton({ compact = false }: WalletConnectBu
     analytics.trackEvent('wallet_disconnect', { wallet_type: 'metamask' });
   };
 
+  // Flash a "just connected" success state for 2 seconds after connecting
+  const [justConnected, setJustConnected] = useState(false);
+  const prevConnected = useRef(false);
+
+  // Copy-to-clipboard state
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!prevConnected.current && isConnected) {
+      setJustConnected(true);
+      const t = setTimeout(() => setJustConnected(false), 2000);
+      return () => clearTimeout(t);
+    }
+    prevConnected.current = isConnected;
+  }, [isConnected]);
+
+  const handleCopyAddress = () => {
+    if (!address) return;
+    navigator.clipboard.writeText(address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  const metaMaskInstalled = isMetaMaskInstalled();
+
+  // ─── Compact variant (header / navbar) ───────────────────────────────────
   if (compact) {
     return (
       <div className="relative flex flex-col items-end gap-2">
@@ -101,9 +134,15 @@ export default function WalletConnectButton({ compact = false }: WalletConnectBu
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand/10 border border-brand/20 text-brand font-bold text-[13px] hover:bg-brand/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.97]"
           >
             {isConnecting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Connecting…</span>
+              </>
             ) : (
-              <Wallet className="w-4 h-4" />
+              <>
+                <Wallet className="w-4 h-4" />
+                <span className="hidden xs:inline">Connect Wallet</span>
+              </>
             )}
           </div>
         )}
@@ -122,11 +161,12 @@ export default function WalletConnectButton({ compact = false }: WalletConnectBu
     );
   }
 
-  // Full-size variant (used in platform cards / standalone pages)
+  // ─── Full-size variant (platform cards / standalone pages) ────────────────
   return (
     <div className="flex flex-col gap-3 w-full">
+      {/* Error banner */}
       {error && (
-        <div className="flex items-start gap-2.5 bg-red-950/60 border border-red-500/25 rounded-xl px-4 py-3">
+        <div className="flex items-start gap-2.5 bg-red-950/60 border border-red-500/25 rounded-xl px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-200">
           <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <p className="text-[13px] text-red-300 leading-snug flex-1">{error}</p>
           <button onClick={clearError} className="text-red-400 hover:text-red-200 transition-colors shrink-0 cursor-pointer" aria-label="Close error message">
@@ -152,12 +192,35 @@ export default function WalletConnectButton({ compact = false }: WalletConnectBu
           className="w-full py-4 rounded-xl font-bold text-[14px] bg-brand hover:bg-brand-hover text-black shadow-[0_0_20px_rgba(0,229,143,0.2)] hover:shadow-[0_0_35px_rgba(0,229,143,0.35)] transition-all flex items-center justify-center gap-2.5 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {isConnecting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Waiting for MetaMask…</span>
+            </>
           ) : (
-            <Wallet className="w-4 h-4" />
+            <>
+              <Wallet className="w-5 h-5" />
+              <span>Connect MetaMask</span>
+            </>
           )}
-          {isConnecting ? "Connecting..." : "Connect MetaMask"}
         </button>
+      ) : (
+        /* MetaMask not installed — prompt to install */
+        <a
+          href="https://metamask.io/download/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full py-4 rounded-xl font-bold text-[14px] bg-brand/10 border border-brand/20 text-brand hover:bg-brand/20 transition-all flex items-center justify-center gap-2.5 active:scale-[0.98]"
+        >
+          <ExternalLink className="w-5 h-5" />
+          Install MetaMask to Connect
+        </a>
+      )}
+
+      {/* Connecting progress indicator */}
+      {isConnecting && (
+        <p className="text-center text-[12px] text-[#5A6F65] animate-in fade-in duration-300">
+          Check the MetaMask popup to approve the connection.
+        </p>
       )}
     </div>
   );
