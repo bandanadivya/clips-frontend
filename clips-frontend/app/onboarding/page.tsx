@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { MockApi } from "@/app/lib/mockApi";
-import { Loader2, Link2, User as UserIcon, MonitorPlay, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Loader2, Link2, User as UserIcon, MonitorPlay, ArrowRight, CheckCircle2, Wallet, Info } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
 import { useRouter } from "next/navigation";
@@ -96,6 +96,65 @@ function FieldError({ message, id }: { message?: string; id?: string }) {
   );
 }
 
+function WalletAwarenessStep({ onContinue, loading }: { onContinue: () => void; loading: boolean }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <div className="w-full flex flex-col items-center justify-center animate-in zoom-in-95 fade-in duration-500 mt-12">
+      <div className="w-full max-w-[480px] bg-surface/90 backdrop-blur-md rounded-[24px] p-8 sm:p-10 border border-border shadow-[0_4px_40px_rgba(0,0,0,0.5)] text-center">
+        {/* Icon */}
+        <div className="w-16 h-16 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center mx-auto mb-6">
+          <Wallet className="w-8 h-8 text-brand" />
+        </div>
+
+        <h2 className="text-[28px] font-bold tracking-tight text-white mb-3">
+          Your payment wallet is ready! 🎉
+        </h2>
+        <p className="text-muted text-[15px] leading-relaxed mb-2">
+          We've automatically set up a Stellar wallet for you. You can use it to receive earnings, mint NFTs, and manage your creator payments — no crypto experience needed.
+        </p>
+
+        {/* Learn More tooltip trigger */}
+        <div className="relative inline-block mb-8">
+          <button
+            onClick={() => setShowTooltip(!showTooltip)}
+            className="flex items-center gap-1.5 text-brand text-[13px] font-medium hover:underline mx-auto"
+          >
+            <Info className="w-4 h-4" />
+            Learn more about your wallet
+          </button>
+
+          {showTooltip && (
+            <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-72 bg-surface border border-border rounded-xl p-4 text-left shadow-xl z-10 animate-in fade-in slide-in-from-top-2 duration-200">
+              <p className="text-[13px] text-white font-bold mb-2">What is a Stellar wallet?</p>
+              <ul className="space-y-1.5 text-[12px] text-muted">
+                <li>• It's like a bank account on the Stellar blockchain — fast and nearly free to use.</li>
+                <li>• Your wallet is secured with AES-GCM encryption and stored only on your device.</li>
+                <li>• You can export your secret key anytime from Settings → Advanced Wallet.</li>
+                <li>• Earnings from your clips can be paid directly to this wallet.</li>
+              </ul>
+              <button
+                onClick={() => setShowTooltip(false)}
+                className="mt-3 text-[11px] text-muted hover:text-white transition-colors"
+              >
+                Got it ✕
+              </button>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={onContinue}
+          disabled={loading}
+          className="w-full bg-brand hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed text-black py-[15px] rounded-[12px] font-bold text-[15px] flex justify-center items-center gap-2 transition-all active:scale-[0.98] shadow-[0_0_20px_rgba(0,229,143,0.1)]"
+        >
+          {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Go to Dashboard <CheckCircle2 className="w-[18px] h-[18px]" /></>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function OnboardingPage() {
   const { user, setUser } = useAuth();
   const router = useRouter();
@@ -117,7 +176,7 @@ export default function OnboardingPage() {
   const [errors, setErrors] = useState<OnboardingErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  const step = user?.onboardingStep === 1 ? 1 : 2;
+  const step = user?.onboardingStep === 1 ? 1 : user?.onboardingStep === 2 ? 2 : 3;
 
   const handleStep1Change = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -190,6 +249,20 @@ export default function OnboardingPage() {
         onboardingStep: 3, 
         profile: { ...user.profile, ...step2Form, socialsConnected: true } 
       });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completeStep3 = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await MockApi.saveOnboarding(user.id, 4, { walletAcknowledged: true });
+      setUser({ ...user, onboardingStep: 4, profile: { ...user.profile, walletAcknowledged: true } });
+      router.push("/dashboard");
     } catch (err) {
       console.error(err);
     } finally {
@@ -446,7 +519,7 @@ export default function OnboardingPage() {
                   type="submit" disabled={loading}
                   className="w-full bg-brand hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed text-black py-[15px] rounded-[12px] font-bold text-[15px] flex justify-center items-center gap-2 transition-all active:scale-[0.98] shadow-[0_0_20px_rgba(0,229,143,0.1)]"
                 >
-                  {loading ? <Loader2 className="animate-spin w-5 h-5"/> : <>Complete Onboarding <CheckCircle2 className="w-[18px] h-[18px]"/></>}
+                  {loading ? <Loader2 className="animate-spin w-5 h-5"/> : <>Continue <ArrowRight className="w-[18px] h-[18px]"/></>}
                 </button>
                 
                 <button 
@@ -459,6 +532,9 @@ export default function OnboardingPage() {
               </div>
             </form>
           </div>
+        ) : (
+          /* Step 3 — Wallet Awareness */
+          <WalletAwarenessStep onContinue={completeStep3} loading={loading} />
         )}
       </main>
     </div>

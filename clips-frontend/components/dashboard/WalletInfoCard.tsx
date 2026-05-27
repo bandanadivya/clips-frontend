@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Wallet, ExternalLink, Copy, Check, AlertCircle } from "lucide-react";
 import { useWalletConnection } from "@/app/hooks/useWalletConnection";
 import BalanceDisplay from "@/components/wallet/BalanceDisplay";
+import TransactionHistory from "@/components/wallet/TransactionHistory";
 
 export default function WalletInfoCard() {
   const {
@@ -176,6 +177,11 @@ export default function WalletInfoCard() {
             Explorer
           </button>
         </div>
+      </div>
+
+      {/* Transaction History */}
+      <div className="mt-4 pt-4 border-t border-border">
+        <TransactionHistory publicKey={publicKey!} network={network} limit={8} />
       </div>
     </div>
   );

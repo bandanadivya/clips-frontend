@@ -212,6 +212,21 @@ export default function BalanceDisplay({
         </div>
       </div>
 
+      {/* Other Stellar Assets */}
+      {balance.otherAssets && balance.otherAssets.length > 0 && (
+        <div className="p-4 bg-surface-hover border border-border rounded-xl space-y-2">
+          <span className="text-[12px] text-muted font-medium uppercase tracking-wider">
+            Other Assets
+          </span>
+          {balance.otherAssets.map((asset) => (
+            <div key={`${asset.code}-${asset.issuer}`} className="flex items-baseline justify-between">
+              <span className="text-[13px] text-muted font-medium">{asset.code}</span>
+              <span className="text-[15px] font-bold text-white">{parseFloat(asset.balance).toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Last Update & Auto-refresh Indicator */}
       {(showLastUpdate || isAutoRefreshing) && (
         <div className="flex items-center justify-between text-[11px] text-muted">

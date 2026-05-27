@@ -11,6 +11,16 @@ export interface Balance {
   usd: string;
   usdRaw: number;
   lastUpdated: Date;
+  /** All non-native Stellar asset balances */
+  otherAssets: AssetBalance[];
+}
+
+/** A non-native Stellar asset balance */
+export interface AssetBalance {
+  code: string;
+  issuer: string;
+  balance: string;
+  balanceRaw: number;
 }
 
 /**
@@ -98,6 +108,16 @@ export async function getBalance(
 
     const xlmAmount = parseFloat(xlmBalance.balance);
 
+    // Collect other (non-native) asset balances
+    const otherAssets: AssetBalance[] = accountData.balances
+      .filter((b: any) => b.asset_type !== "native")
+      .map((b: any) => ({
+        code: b.asset_code ?? b.asset_type,
+        issuer: b.asset_issuer ?? "",
+        balance: parseFloat(b.balance).toFixed(7),
+        balanceRaw: parseFloat(b.balance),
+      }));
+
     // Fetch current XLM price in USD
     const xlmPriceUSD = await fetchXLMPrice();
     const usdValue = xlmAmount * xlmPriceUSD;
@@ -108,6 +128,7 @@ export async function getBalance(
       usd: usdValue.toFixed(2),
       usdRaw: usdValue,
       lastUpdated: new Date(),
+      otherAssets,
     };
   } catch (err: any) {
     // If error already has code and message, throw it as is
