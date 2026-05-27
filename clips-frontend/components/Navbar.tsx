@@ -9,6 +9,7 @@ import WalletStatus from "./WalletStatus";
 
 export default function Navbar() {
   const { user, setUser } = useAuth();
+  const { balance: stellarBalance, status: stellarStatus } = useAutoStellarWallet();
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const { showToast, ToastEl } = useComingSoonToast();

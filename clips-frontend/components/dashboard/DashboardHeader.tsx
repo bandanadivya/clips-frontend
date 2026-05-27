@@ -14,6 +14,7 @@ interface HeaderProps {
 
 export default function DashboardHeader({ onMenuClick }: HeaderProps) {
   const { user } = useAuth();
+  const { balance: stellarBalance, status: stellarStatus } = useAutoStellarWallet();
   const { theme, toggleTheme } = useTheme();
   const [isUploading, setIsUploading] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
