@@ -14,7 +14,6 @@ export type User = {
   email: string;
   name?: string;
   username?: string;
-  password?: string;
   onboardingStep: number;
   profile?: OnboardingData;
   guardians?: string[];
