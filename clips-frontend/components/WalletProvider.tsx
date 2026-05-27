@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { secureStorage } from "@/app/lib/secureStorage";
+import analytics from "@/lib/analytics";
 
 // EIP-1193 provider type (window.ethereum)
 declare global {
@@ -25,7 +26,7 @@ declare global {
   }
 }
 
-export type WalletType = "metamask" | "phantom";
+export type WalletType = "metamask" | "phantom" | "stellar";
 
 export interface WalletState {
   address: string | null;
@@ -39,8 +40,16 @@ export interface WalletState {
 interface WalletContextType extends WalletState {
   connectMetaMask: () => Promise<void>;
   connectPhantom: () => Promise<void>;
+  connectStellar: () => Promise<void>;
+  importStellarKey: (secret: string) => Promise<void>;
+  fundWithFriendbot: () => Promise<void>;
+  refreshBalance: () => Promise<void>;
+  sendXlmPayment: (destination: string, amount: string) => Promise<{ success: boolean; hash: string }>;
   disconnect: () => void;
   clearError: () => void;
+  balance: string | null;
+  stellarSecret: string | null;
+  stellarMnemonic: string | null;
 }
 
 const STORAGE_KEY = "clipcash_wallet";
@@ -85,13 +94,21 @@ const WalletContext = createContext<WalletContextType>({
   ...defaultState,
   connectMetaMask: async () => {},
   connectPhantom: async () => {},
+  connectStellar: async () => {},
+  importStellarKey: async () => {},
+  fundWithFriendbot: async () => {},
+  refreshBalance: async () => {},
+  sendXlmPayment: async () => ({ success: false, hash: "" }),
   disconnect: () => {},
   clearError: () => {},
+  balance: null,
+  stellarSecret: null,
+  stellarMnemonic: null,
 });
 
 export const useWallet = () => useContext(WalletContext);
 
-/** Truncate a wallet address for display: 0x1234...5678 */
+/** Truncate a wallet address for display: 0x1234...5678 or GABC...XYZ */
 export function truncateAddress(address: string): string {
   if (address.length < 10) return address;
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -99,6 +116,9 @@ export function truncateAddress(address: string): string {
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<WalletState>(defaultState);
+  const [balance, setBalance] = useState<string | null>(null);
+  const [stellarSecret, setStellarSecret] = useState<string | null>(null);
+  const [stellarMnemonic, setStellarMnemonic] = useState<string | null>(null);
   const stateRef = useRef(state);
 
   // Sync ref with state so event listeners always see latest values
@@ -106,14 +126,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = state;
   }, [state]);
 
-  // Restore persisted session on mount.
-  // sessionStorage is used instead of localStorage so the session is cleared
-  // when the browser tab is closed, reducing the window for session hijacking.
+  function persistSession(data: {
+    address: string | null;
+    chainId: string | null;
+    walletType: WalletType | null;
+    stellarSecret?: string | null;
+    stellarMnemonic?: string | null;
+  }) {
+    if (data.address) {
+      secureStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } else {
+      secureStorage.removeItem(STORAGE_KEY);
+    }
+  }
+
+  // Restore persisted session on mount
   useEffect(() => {
     try {
       secureStorage.getItem(STORAGE_KEY).then((stored) => {
         if (stored) {
-          const parsed: Partial<WalletState> = JSON.parse(stored);
+          const parsed = JSON.parse(stored);
           if (parsed.address && parsed.walletType) {
             setState((prev: WalletState) => ({
               ...prev,
@@ -122,6 +154,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               walletType: parsed.walletType!,
               isConnected: true,
             }));
+            if (parsed.walletType === "stellar") {
+              setStellarSecret(parsed.stellarSecret ?? null);
+              setStellarMnemonic(parsed.stellarMnemonic ?? null);
+            }
           }
         }
       });
@@ -130,6 +166,28 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       sessionStorage.removeItem(STORAGE_KEY);
     }
   }, []);
+
+  // Balance updater helper
+  const refreshBalance = useCallback(async () => {
+    if (state.walletType !== "stellar" || !state.address) return;
+    try {
+      const bal = await getBalance(state.address);
+      setBalance(bal);
+    } catch (err: any) {
+      console.error("Failed to fetch balance:", err);
+    }
+  }, [state.address, state.walletType]);
+
+  // Sync balance update on Stellar connection
+  useEffect(() => {
+    if (state.walletType === "stellar" && state.address) {
+      refreshBalance();
+      const interval = setInterval(refreshBalance, 8000);
+      return () => clearInterval(interval);
+    } else {
+      setBalance(null);
+    }
+  }, [state.address, state.walletType, refreshBalance]);
 
   // Listen for MetaMask account / chain changes
   useEffect(() => {
@@ -201,18 +259,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  function persistSession(data: { address: string | null; chainId: string | null; walletType: WalletType | null }) {
-    if (data.address) {
-      secureStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } else {
-      secureStorage.removeItem(STORAGE_KEY);
-    }
-  }
-
   function handleDisconnect() {
     setState({ ...defaultState });
+    setBalance(null);
+    setStellarSecret(null);
+    setStellarMnemonic(null);
     secureStorage.removeItem(STORAGE_KEY);
-    
+
     // Disconnect from Phantom if connected
     const solana = window.solana;
     if (solana && state.walletType === "phantom") {
@@ -284,6 +337,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       });
 
       persistSession({ address, chainId, walletType: "metamask" });
+      
+      // Track successful wallet connection
+      analytics.trackWalletConnect("metamask");
     } catch (err: unknown) {
       const message =
         (err as { code?: number; message?: string })?.code === 4001
@@ -324,6 +380,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       });
 
       persistSession({ address, chainId: "5EJ9Vc47M3VvM2x6wCk3F2nZ3qG7yB9rD6aX8cE5fG1h", walletType: "phantom" });
+      
+      // Track successful wallet connection
+      analytics.trackWalletConnect("phantom");
     } catch (err: unknown) {
       const message =
         (err as { code?: number; message?: string })?.code === 4001
@@ -338,6 +397,138 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Connect/Generate Stellar wallet
+  const connectStellar = useCallback(async () => {
+    setState((prev: WalletState) => ({ ...prev, isConnecting: true, error: null }));
+    try {
+      const stored = await secureStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.walletType === "stellar" && parsed.stellarSecret) {
+          const keypair = StellarSdk.Keypair.fromSecret(parsed.stellarSecret);
+          const addr = keypair.publicKey();
+          setState({
+            address: addr,
+            chainId: "stellar",
+            walletType: "stellar",
+            isConnected: true,
+            isConnecting: false,
+            error: null,
+          });
+          setStellarSecret(parsed.stellarSecret);
+          setStellarMnemonic(parsed.stellarMnemonic ?? null);
+          return;
+        }
+      }
+
+      const newWallet = await createRandomWallet();
+      setState({
+        address: newWallet.publicKey,
+        chainId: "stellar",
+        walletType: "stellar",
+        isConnected: true,
+        isConnecting: false,
+        error: null,
+      });
+      setStellarSecret(newWallet.secretKey);
+      setStellarMnemonic(newWallet.mnemonic);
+
+      persistSession({
+        address: newWallet.publicKey,
+        chainId: "stellar",
+        walletType: "stellar",
+        stellarSecret: newWallet.secretKey,
+        stellarMnemonic: newWallet.mnemonic,
+      });
+    } catch (err: any) {
+      setState((prev: WalletState) => ({
+        ...prev,
+        isConnecting: false,
+        error: err.message || "Failed to connect/create Stellar wallet",
+      }));
+    }
+  }, []);
+
+  // Import existing Stellar key
+  const importStellarKey = useCallback(async (secret: string) => {
+    setState((prev: WalletState) => ({ ...prev, isConnecting: true, error: null }));
+    try {
+      if (!secret.startsWith("S") || secret.length !== 56) {
+        throw new Error("Invalid secret key format. Must be a 56-character string starting with 'S'.");
+      }
+      const keypair = StellarSdk.Keypair.fromSecret(secret);
+      const addr = keypair.publicKey();
+
+      setState({
+        address: addr,
+        chainId: "stellar",
+        walletType: "stellar",
+        isConnected: true,
+        isConnecting: false,
+        error: null,
+      });
+      setStellarSecret(secret);
+      setStellarMnemonic(null); // Imported secret doesn't have a derived mnemonic phrase
+
+      persistSession({
+        address: addr,
+        chainId: "stellar",
+        walletType: "stellar",
+        stellarSecret: secret,
+        stellarMnemonic: null,
+      });
+    } catch (err: any) {
+      setState((prev: WalletState) => ({
+        ...prev,
+        isConnecting: false,
+        error: err.message || "Failed to import secret key",
+      }));
+      throw err;
+    }
+  }, []);
+
+  // Fund Stellar Wallet on Testnet via Friendbot
+  const fundWithFriendbotAction = useCallback(async () => {
+    if (state.walletType !== "stellar" || !state.address) {
+      throw new Error("Stellar wallet not connected");
+    }
+    setState((prev) => ({ ...prev, isConnecting: true, error: null }));
+    try {
+      await fundWithFriendbot(state.address);
+      // Wait for ledger consensus and refresh balance
+      await new Promise((r) => setTimeout(r, 2500));
+      await refreshBalance();
+      setState((prev) => ({ ...prev, isConnecting: false }));
+    } catch (err: any) {
+      setState((prev) => ({
+        ...prev,
+        isConnecting: false,
+        error: err.message || "Friendbot funding failed",
+      }));
+    }
+  }, [state.address, state.walletType, refreshBalance]);
+
+  // Build, sign, and submit an XLM payment
+  const sendXlmPayment = useCallback(
+    async (destination: string, amount: string) => {
+      if (state.walletType !== "stellar" || !stellarSecret || !state.address) {
+        throw new Error("Stellar wallet is not connected");
+      }
+      try {
+        const { transaction } = await buildPaymentTransaction(state.address, destination, amount);
+        const senderKeypair = StellarSdk.Keypair.fromSecret(stellarSecret);
+        transaction.sign(senderKeypair);
+        const result = await submitTransaction(transaction);
+        await refreshBalance();
+        return { success: true, hash: result.hash };
+      } catch (err: any) {
+        console.error("XLM Payment execution failed:", err);
+        throw err;
+      }
+    },
+    [state.address, state.walletType, stellarSecret, refreshBalance]
+  );
+
   const disconnect = useCallback(() => {
     handleDisconnect();
   }, [state.walletType]);
@@ -348,7 +539,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <WalletContext.Provider
-      value={{ ...state, connectMetaMask, connectPhantom, disconnect, clearError }}
+      value={{
+        ...state,
+        balance,
+        stellarSecret,
+        stellarMnemonic,
+        connectMetaMask,
+        connectPhantom,
+        connectStellar,
+        importStellarKey,
+        fundWithFriendbot: fundWithFriendbotAction,
+        refreshBalance,
+        sendXlmPayment,
+        disconnect,
+        clearError,
+      }}
     >
       {children}
     </WalletContext.Provider>
