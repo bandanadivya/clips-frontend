@@ -48,7 +48,7 @@ npm install stellar-wallets-kit
 
 ## Getting Started
 
-### Prerequisites
+
 
 - **Node.js** version 18 or newer
 - **npm** or **yarn** package manager
@@ -65,7 +65,7 @@ cd clips-frontend
 
 2. Install dependencies:
 ```bash
-cd clips-frontend
+
 npm install
 ```
 
@@ -78,121 +78,3 @@ Edit `clips-frontend/.env.local` using the template at [.env.example](.env.examp
 4. Start the development server:
 ```bash
 npm run dev
-```
-
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Environment Variables
-
-Copy the repository root [`.env.example`](.env.example) to `clips-frontend/.env.local` and fill in the values. Required variables include Google/Apple OAuth credentials, NextAuth settings, and the Sentry DSN. Optional variables (Stellar contract IDs, extra OAuth providers, analytics) are marked in the template with their defaults.
-
-In CI, the build validates that all required variables are set. Locally, the same check runs when `CI=true` (for example during GitHub Actions).
-
-## Project Structure
-
-```
-clips-frontend/
-├── app/                          # Next.js app directory (routes)
-│   ├── components/               # App-specific components (DashboardHeader)
-│   ├── clips/                    # Clips page
-│   ├── cookies/                  # Cookie policy page
-│   ├── dashboard/                # Dashboard + processing sub-page
-│   ├── earnings/                 # Earnings page
-│   ├── hooks/                    # Custom hooks (useDashboardData, useProcessStore)
-│   ├── lib/                      # Utilities (mockApi, sanitize, secureStorage, rateLimiter)
-│   ├── login/                    # Login page
-│   ├── forgot-password/          # Password reset request page
-│   ├── reset-password/            # Password reset with token page
-│   ├── nft-demo/                 # NFT demo page
-│   ├── onboarding/               # Onboarding flow
-│   ├── platforms/                # Platform connections page
-│   ├── privacy/                  # Privacy policy
-│   ├── projects/                 # Projects page
-│   ├── store/                    # Zustand stores (index, types, dashboard, earnings, process, user)
-│   ├── terms/                    # Terms page
-│   ├── vault/                    # NFT Vault page
-│   ├── layout.tsx                # Root layout with providers
-│   └── page.tsx                  # Home page
-├── components/                   # Shared components
-│   ├── clips/                    # Clip-related (Hero, CreateClipsForm, etc.)
-│   ├── dashboard/                # Dashboard components (StatCard, RevenueChart, etc.)
-│   ├── navigation/               # Sidebar, PlanUsage
-│   ├── platforms/                # Platform cards and banners
-│   ├── projects/                 # Project-related (ClipCard, ClipGrid, etc.)
-│   ├── ui/                       # Base UI components (ProgressBar, StatusBadge)
-│   ├── vault/                    # Vault components (NFTCard, NFTGrid)
-│   ├── AuthForm.tsx              # Login/signup form
-│   ├── AuthProvider.tsx          # Auth context provider
-│   ├── WalletProvider.tsx        # Wallet connection provider
-│   └── Navbar.tsx                # Navigation bar
-├── hooks/                        # Shared hooks (useToast, useUndoRedo)
-├── public/                       # Static assets
-│   ├── projects/                 # Project images
-│   └── *.svg, avatar.png        # Icons and images
-├── package.json
-├── tsconfig.json
-├── next.config.ts
-├── eslint.config.mjs
-├── README.md
-└── .env.example                  # Environment variables template
-```
-
-## Available Scripts
-
-- `npm run dev` — Start development server
-- `npm run build` — Build for production
-- `npm run start` — Start production server
-- `npm run lint` — Run ESLint
-
-## Contributing
-
-We welcome contributions! Please follow these guidelines:
-
-### Pull Request Process
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Guidelines
-
-- Follow the existing code style
-- Write clear, descriptive commit messages
-- Add tests for new features when applicable
-- Update documentation as needed
-- Ensure `npm run lint` passes before submitting
-- Keep PRs focused on a single feature or fix
-
-### Reporting Issues
-
-- Use the GitHub issue tracker
-- Include steps to reproduce bugs
-- Specify your environment (OS, browser, Node.js version)
-- Include relevant screenshots if applicable
-
-## Security
-
-- All sensitive data in localStorage is encrypted using AES-GCM via the Web Crypto API
-- Rate limiting is implemented on API calls to prevent abuse
-- Password reset tokens expire after 1 hour
-- No external dependencies for encryption (uses native Web Crypto API)
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Screenshots / Demo
-
-![ClipCash Dashboard](public/screenshots/dashboard.png)
-*Dashboard showing earnings overview and clip statistics*
-
-![Clip Creation](public/screenshots/create-clips.png)
-*AI-powered clip creation from long videos*
-
-**Demo GIF**: [Add a demo GIF here showing the clip creation flow]
-
----
-
-Made with ❤️ for content creators everywhere.
