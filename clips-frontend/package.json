@@ -15,6 +15,7 @@
     "changeset": "changeset"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.637.0",
     "@sentry/nextjs": "^10.55.0",
     "@sentry/types": "^10.55.0",
     "@stellar/stellar-sdk": "^15.1.0",
