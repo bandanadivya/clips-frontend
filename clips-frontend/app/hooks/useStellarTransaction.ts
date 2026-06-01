@@ -13,12 +13,12 @@ import { captureSorobanNotSupportedWarning } from "@/app/lib/sentry";
 /**
  * Stellar transaction status
  */
-export type StellarTransactionStatus = 
-  | "idle" 
-  | "building" 
-  | "signing" 
-  | "submitting" 
-  | "success" 
+export type StellarTransactionStatus =
+  | "idle"
+  | "building"
+  | "signing"
+  | "submitting"
+  | "success"
   | "error";
 
 /**
@@ -138,10 +138,10 @@ export function useStellarTransaction(options: StellarTransactionOptions = {}) {
    */
   const checkFreighterInstalled = useCallback((): boolean => {
     if (typeof window === "undefined") return false;
-    
+
     // @ts-expect-error - Freighter adds this to window
     const freighter = window.freighter;
-    
+
     if (!freighter) {
       const error: StellarTransactionError = {
         code: "FREIGHTER_NOT_INSTALLED",
@@ -156,7 +156,7 @@ export function useStellarTransaction(options: StellarTransactionOptions = {}) {
       onError?.(error);
       return false;
     }
-    
+
     return true;
   }, [onError]);
 
@@ -166,7 +166,7 @@ export function useStellarTransaction(options: StellarTransactionOptions = {}) {
   const getPublicKey = useCallback(async (): Promise<string> => {
     // @ts-expect-error - Freighter adds this to window
     const freighter = window.freighter;
-    
+
     try {
       const publicKey = await freighter.getPublicKey();
       if (!publicKey) {
@@ -189,17 +189,18 @@ export function useStellarTransaction(options: StellarTransactionOptions = {}) {
     async (xdr: string, publicKey: string): Promise<string> => {
       // @ts-expect-error - Freighter adds this to window
       const freighter = window.freighter;
-      
+      const freighterNetwork = network === "mainnet" ? "PUBLIC" : "TESTNET";
+
       try {
         const signedXdr = await freighter.signTransaction(xdr, {
-          network,
+          network: freighterNetwork,
           accountToSign: publicKey,
         });
-        
+
         if (!signedXdr) {
           throw new Error("No signed XDR returned from Freighter");
         }
-        
+
         return signedXdr;
       } catch (err) {
         // User rejected the transaction
@@ -210,7 +211,7 @@ export function useStellarTransaction(options: StellarTransactionOptions = {}) {
           };
           throw error;
         }
-        
+
         const error: StellarTransactionError = {
           code: "SIGNING_ERROR",
           message: err instanceof Error ? err.message : "Failed to sign transaction",
@@ -573,12 +574,12 @@ export function useStellarTransaction(options: StellarTransactionOptions = {}) {
   return {
     // State
     ...state,
-    
+
     // Actions
     executeTransaction,
     reset,
     cancel,
-    
+
     // Batch actions
     addOperation,
     removeOperation,

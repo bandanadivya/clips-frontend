@@ -12,7 +12,7 @@
  *  - Visual feedback on interactions
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Copy, CheckCheck } from "lucide-react";
 import QRCode from "qrcode";
 import { useToast } from "@/hooks/useToast";
@@ -39,25 +39,38 @@ export default function QRCodeDisplay({
   const [copied, setCopied] = useState(false);
   const { showToast } = useToast();
 
-  // Generate QR code on mount and when address changes
+  const theme = useMemo(() => {
+    if (typeof document === "undefined") return "dark";
+    return document.documentElement.getAttribute("data-theme") ?? "dark";
+  }, []);
+
+  // Generate QR code on mount, address changes, or theme changes.
   useEffect(() => {
     if (!address || !canvasRef.current) return;
 
     const generateQRCode = async () => {
       try {
         setIsGenerating(true);
-        // Generate QR code with optimized settings for wallet addresses
+
+        const isDark =
+          (typeof document !== "undefined" &&
+            document.documentElement.getAttribute("data-theme") === "light") ===
+          false;
+
+        // In dark mode: render dark modules with transparent/near-dark background.
+        // In light mode: keep classic black-on-white.
         await QRCode.toCanvas(canvasRef.current, address, {
-          errorCorrectionLevel: "H", // High error correction
+          errorCorrectionLevel: "H",
           type: "image/png",
           quality: 0.95,
           margin: 2,
           width: 256,
           color: {
-            dark: "#000000",
-            light: "#FFFFFF",
+            dark: isDark ? "#E5E7EB" : "#000000",
+            light: isDark ? "#101614" : "#FFFFFF",
           },
         });
+
         setIsGenerating(false);
       } catch (error) {
         console.error("Failed to generate QR code:", error);
@@ -67,7 +80,8 @@ export default function QRCodeDisplay({
     };
 
     generateQRCode();
-  }, [address, showToast]);
+  }, [address, showToast, theme]);
+
 
   const handleDownload = () => {
     if (!canvasRef.current) return;
@@ -106,7 +120,7 @@ export default function QRCodeDisplay({
           disabled={isGenerating}
           title="Download QR code"
           aria-label="Download QR code"
-          className="p-2 rounded-[8px] bg-[#131A17] border border-[#1E2A24] text-[#5A6F65] hover:text-brand hover:border-brand/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2 rounded-[8px] bg-surface-hover border border-border text-muted-foreground hover:text-white hover:border-brand/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
@@ -114,7 +128,7 @@ export default function QRCodeDisplay({
           onClick={handleCopyAddress}
           title="Copy wallet address"
           aria-label={copied ? "Address copied" : "Copy wallet address"}
-          className="p-2 rounded-[8px] bg-[#131A17] border border-[#1E2A24] text-[#5A6F65] hover:text-brand hover:border-brand/30 transition-all"
+          className="p-2 rounded-[8px] bg-surface-hover border border-border text-muted-foreground hover:text-brand hover:border-brand/30 transition-all"
         >
           {copied ? (
             <CheckCheck className="w-3.5 h-3.5 text-brand" aria-hidden="true" />
@@ -128,7 +142,7 @@ export default function QRCodeDisplay({
 
   return (
     <div className={`flex flex-col items-center gap-4 ${className}`}>
-      <div className="bg-white p-3 rounded-xl border border-[#E5E7EB] max-w-full">
+      <div className="bg-surface-hover p-3 rounded-xl border border-border max-w-full">
         <canvas
           ref={canvasRef}
           className="w-64 h-64 block"
@@ -152,7 +166,7 @@ export default function QRCodeDisplay({
           onClick={handleCopyAddress}
           title="Copy wallet address to clipboard"
           aria-label={copied ? "Address copied" : "Copy address"}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.05] border border-white/10 text-[13px] font-medium text-muted-foreground hover:text-white hover:bg-white/[0.1] transition-all"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-hover border border-border text-[13px] font-medium text-muted-foreground hover:text-white hover:bg-surface transition-all"
         >
           {copied ? (
             <>
@@ -168,7 +182,7 @@ export default function QRCodeDisplay({
         </button>
       </div>
 
-      <p className="text-[12px] text-[#5A6F65] text-center">
+      <p className="text-[12px] text-muted-foreground text-center">
         Scan to receive {label.replace(/-/g, " ")}
       </p>
     </div>

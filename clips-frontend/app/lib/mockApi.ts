@@ -34,6 +34,9 @@ export type User = {
   username?: string;
   onboardingStep: number;
   profile?: OnboardingData;
+  walletAddress?: string;
+  walletType?: string;
+  walletNetwork?: "testnet" | "mainnet";
   socialRecoveryThreshold?: number;
   socialRecoveryGuardianCount?: number;
 };
@@ -56,6 +59,7 @@ const users: User[] = [
     password: "Password123",
     onboardingStep: 3,
     profile: { niche: "gaming", username: "testuser" },
+    walletNetwork: "testnet",
     socialRecoveryThreshold: 2,
     socialRecoveryGuardianCount: 3,
   }
@@ -111,7 +115,7 @@ export const checkEmail = rateLimiter(async (email: string) => {
 export const login = rateLimiter(async (email: string, password?: string) => {
   await delay(800);
   const user = users.find(u => u.email === email);
-  
+
   if (!user || (password && user.password !== password)) {
     throw new ApiError("Invalid credentials", "INVALID_CREDENTIALS");
   }
@@ -122,7 +126,7 @@ export const login = rateLimiter(async (email: string, password?: string) => {
 
 export const signup = rateLimiter(async (email: string, password?: string, name?: string) => {
   await delay(800);
-  
+
   if (users.find(u => u.email === email)) {
     throw new ApiError("User already exists", "USER_EXISTS");
   }
@@ -137,7 +141,7 @@ export const signup = rateLimiter(async (email: string, password?: string, name?
   };
 
   users.push(newUser);
-  
+
   const token = `fake-jwt-token-${newUser.id}`;
   return { token, user: newUser };
 }, 10, 10000);
@@ -154,7 +158,7 @@ export const requestPasswordReset = rateLimiter(async (email: string) => {
 
 export const resetPassword = rateLimiter(async (token: string, newPassword: string) => {
   await delay(800);
-  const email = Object.keys(resetTokens).find(e => 
+  const email = Object.keys(resetTokens).find(e =>
     resetTokens[e].token === token && resetTokens[e].expiresAt > Date.now()
   );
   if (!email) throw new ApiError('Invalid or expired token', 'INVALID_TOKEN');
@@ -188,9 +192,9 @@ export const postClips = rateLimiter(async (clipIds: string[]) => {
 
 export const saveOnboarding = rateLimiter(async (userId: string, step: number, data: OnboardingData) => {
   await delay(500);
-  
+
   let user: User | undefined = users.find(u => u.id === userId);
-  
+
   if (!user && typeof window !== "undefined") {
     const stored = localStorage.getItem("clipcash_user");
     if (stored) {
@@ -206,18 +210,18 @@ export const saveOnboarding = rateLimiter(async (userId: string, step: number, d
 
   user.onboardingStep = step;
   user.profile = { ...user.profile, ...data };
-  
+
   return { success: true, user };
 }, 10, 10000);
 
 export const getEarningsReport = rateLimiter(async (userId: string) => {
   await delay(1000 + Math.random() * 500);
-  
+
   const transactions: Transaction[] = [];
   const platforms = ['YouTube', 'TikTok', 'Instagram', 'Twitch'] as const;
   const types = ['payout', 'royalty', 'mint', 'referral'] as const;
   const cryptoCurrencies = ['ETH', 'SOL', 'USDC'] as const;
-  
+
   let totalAmount = 0;
   for (let i = 0; i < 55; i++) {
     const platform = platforms[Math.floor(Math.random() * platforms.length)] as Transaction['platform'];
@@ -226,7 +230,7 @@ export const getEarningsReport = rateLimiter(async (userId: string) => {
     const amount = parseFloat((10 + Math.random() * 300).toFixed(2));
     const date = new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const hasCrypto = type === 'mint' || type === 'royalty';
-    
+
     const tx: Transaction = {
       id: `TX-${String(i + 1).padStart(5, '0')}`,
       date,
@@ -241,11 +245,11 @@ export const getEarningsReport = rateLimiter(async (userId: string) => {
       status,
       taxId: `TAX-${String(i + 1).padStart(3, '0')}`,
     };
-    
+
     transactions.push(tx);
     totalAmount += tx.amount;
   }
-  
+
   return {
     transactions,
     summary: {
