@@ -208,6 +208,36 @@ export function createSetOptionsOp(
   return { type: "set_options", ...params };
 }
 
+export function createAddSignerOp(params: {
+  ed25519PublicKey: string;
+  weight: number;
+  source?: string;
+}): SetOptionsOperation {
+  return createSetOptionsOp({
+    signer: {
+      ed25519PublicKey: params.ed25519PublicKey,
+      weight: params.weight,
+    },
+    source: params.source,
+  });
+}
+
+export function createMultisigThresholdsOp(params: {
+  lowThreshold: number;
+  medThreshold: number;
+  highThreshold: number;
+  masterWeight?: number;
+  source?: string;
+}): SetOptionsOperation {
+  return createSetOptionsOp({
+    lowThreshold: params.lowThreshold,
+    medThreshold: params.medThreshold,
+    highThreshold: params.highThreshold,
+    masterWeight: params.masterWeight,
+    source: params.source,
+  });
+}
+
 export function createBeginSponsoringFutureReservesOp(
   params: Omit<BeginSponsoringFutureReservesOperation, "type">
 ): BeginSponsoringFutureReservesOperation {

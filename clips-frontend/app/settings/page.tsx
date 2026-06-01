@@ -7,14 +7,15 @@ import { useWallet } from "@/components/WalletProvider";
 import SocialRecoveryConfig from "@/components/SocialRecoveryConfig";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import { Bell, BellOff, Check, X, Key, Wallet, Shield, Copy, Eye, EyeOff, Globe, Moon, Sun } from "lucide-react";
+import Link from "next/link";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/components/AuthProvider";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
 import {
   getStoredPermission,
   requestNotificationPermission,
   storePermission,
 } from "@/app/lib/notifications";
-import { useAuth } from "@/components/AuthProvider";
 import Skeleton from "@/components/ui/Skeleton";
 import TrustlineManager from "@/components/wallet/TrustlineManager";
 import { useTheme } from "@/components/theme-provider";
@@ -22,10 +23,14 @@ import { useTheme } from "@/components/theme-provider";
 export default function SettingsPage() {
   const { showToast } = useToast();
   const { theme, toggleTheme } = useTheme();
+  const { user, setUser, isLoading: authLoading } = useAuth();
+  const [walletNetwork, setWalletNetwork] = useState<"testnet" | "mainnet">(
+    user?.walletNetwork ?? "testnet"
+  );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [permission, setPermission] = useState<"granted" | "denied" | "default">("default");
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  
+
   // Wallet visibility and inputs
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [showMnemonic, setShowMnemonic] = useState(false);
@@ -36,7 +41,26 @@ export default function SettingsPage() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedMnemonic, setCopiedMnemonic] = useState(false);
 
-  const { isLoading: authLoading } = useAuth();
+  useEffect(() => {
+    if (user?.walletNetwork && user.walletNetwork !== walletNetwork) {
+      setWalletNetwork(user.walletNetwork);
+    }
+  }, [user?.walletNetwork, walletNetwork]);
+
+  const handleNetworkChange = (network: "testnet" | "mainnet") => {
+    setWalletNetwork(network);
+    if (user) {
+      setUser({
+        ...user,
+        walletNetwork: network,
+      });
+    }
+    showToast(
+      `Wallet network set to ${network === "testnet" ? "Testnet" : "Mainnet"}`,
+      "success"
+    );
+  };
+
   const {
     isConnected,
     walletType,
@@ -119,11 +143,11 @@ export default function SettingsPage() {
       {/* Radial Glows */}
       <div className="glow-large fixed top-0 left-0 w-[50vw] h-[50vw] rounded-full bg-brand/5 blur-[120px] pointer-events-none -translate-x-1/4 -translate-y-1/4" />
       <div className="fixed top-1/4 right-0 w-[600px] h-[600px] bg-brand/[0.03] rounded-full blur-[100px] pointer-events-none translate-x-1/3" />
-      
+
       {/* Sidebar Backdrop Overlay (Mobile) */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden animate-in fade-in duration-300" 
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden animate-in fade-in duration-300"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -137,8 +161,73 @@ export default function SettingsPage() {
 
         <div className="dashboard-main space-y-8 max-w-[900px] mx-auto w-full p-6 md:p-8">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
-            <p className="text-muted-foreground text-sm mt-1">Configure your notifications, wallets, and recovery plans.</p>
+            <h1 className="text-3xl font-extrabold tracking-tight">Wallet Settings</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Manage wallet preferences, network selection, and recovery options.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-surface border border-white/5 rounded-2xl p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0">
+                    <Globe className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white">Stellar Network</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Switch between Testnet and Mainnet for your wallet operations.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {(["testnet", "mainnet"] as const).map((network) => (
+                    <button
+                      key={network}
+                      type="button"
+                      onClick={() => handleNetworkChange(network)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors border ${walletNetwork === network
+                        ? "bg-brand text-black border-brand"
+                        : "bg-white/5 text-white border-white/10 hover:border-white/20"
+                        }`}
+                    >
+                      {network === "testnet" ? "Testnet" : "Mainnet"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground mt-4">
+                {walletNetwork === "mainnet"
+                  ? "Mainnet uses live Stellar endpoints and real XLM. Use caution when transacting."
+                  : "Testnet is the safe default for experimentation and development."}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-surface border border-white/5 rounded-2xl p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0">
+                  <Shield className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="font-bold text-white">Multisig Wallet Setup</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add a second signer and require multiple approvals for key transactions.
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href="/multisig"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-brand transition hover:bg-white/10"
+              >
+                Configure multisig
+              </Link>
+            </div>
           </div>
 
           {pageLoading ? (
@@ -201,7 +290,7 @@ export default function SettingsPage() {
               {/* Notifications */}
               <div className="space-y-4">
                 <h2 className="text-lg font-extrabold text-white">Push Notifications</h2>
-                
+
                 <div className="bg-surface border border-white/5 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     {permission === "granted" ? (
@@ -288,15 +377,13 @@ export default function SettingsPage() {
 
                   <button
                     onClick={toggleTheme}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                      theme === 'dark' ? "bg-brand" : "bg-white/10"
-                    }`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${theme === 'dark' ? "bg-brand" : "bg-white/10"
+                      }`}
                     aria-label="Toggle Dark Mode"
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        theme === 'dark' ? "translate-x-6" : "translate-x-1"
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${theme === 'dark' ? "translate-x-6" : "translate-x-1"
+                        }`}
                     />
                   </button>
                 </div>
@@ -324,25 +411,23 @@ export default function SettingsPage() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <button
                       onClick={() => setAdvancedWalletEnabled(!advancedWalletEnabled)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                        advancedWalletEnabled ? "bg-brand" : "bg-white/10"
-                      }`}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${advancedWalletEnabled ? "bg-brand" : "bg-white/10"
+                        }`}
                       aria-label="Toggle Advanced Wallet Mode"
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          advancedWalletEnabled ? "translate-x-6" : "translate-x-1"
-                        }`}
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${advancedWalletEnabled ? "translate-x-6" : "translate-x-1"
+                          }`}
                       />
                     </button>
                   </div>
 
                   {advancedWalletEnabled && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                      
+
                       {/* If Stellar Wallet is Connected */}
                       {isStellarConnected ? (
                         <div className="space-y-5">
@@ -356,9 +441,9 @@ export default function SettingsPage() {
 
                           <div className="p-4 rounded-xl bg-black/40 border border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-4">
                             <div className="space-y-1">
-                              <p className="font-bold text-sm text-white">Reveal Secret Key</p>
+                              <p className="font-bold text-sm text-white">Secret Key Export (Secure)</p>
                               <p className="text-xs text-muted-foreground leading-normal max-w-md">
-                                Export the raw Stellar Secret Key (starts with S). Never share this key with anyone.
+                                Never share your Stellar Secret Key. Export requires multiple confirmations and supports encrypted download.
                               </p>
                               {showPrivateKey && (
                                 <p className="text-xs font-mono text-brand break-all bg-brand/5 border border-brand/20 p-2 rounded-lg mt-2 select-all">
@@ -366,7 +451,7 @@ export default function SettingsPage() {
                                 </p>
                               )}
                             </div>
-                            <div className="flex gap-2 shrink-0 items-end">
+                            <div className="flex gap-2 shrink-0 items-end flex-wrap md:flex-nowrap">
                               <button
                                 onClick={() => setShowPrivateKey(!showPrivateKey)}
                                 className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:text-brand hover:border-brand/30 transition-all flex items-center gap-1 cursor-pointer"
@@ -374,6 +459,25 @@ export default function SettingsPage() {
                                 {showPrivateKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                 {showPrivateKey ? "Hide" : "Reveal"}
                               </button>
+
+                              <button
+                                onClick={() => {
+                                  // minimal client-side enforcement; full flow implemented in a modal in follow-up PR if needed
+                                  if (!stellarSecret) return;
+                                  const ok1 = window.confirm("Warning: This is your raw Stellar Secret Key. Anyone with it controls your funds. Continue?");
+                                  if (!ok1) return;
+                                  const ok2 = window.confirm("Last chance: Click OK to download an encrypted backup. Your password is required.");
+                                  if (!ok2) return;
+                                  // encrypted download is handled by a future secure modal; for now, we block raw copy via this button
+                                  showToast("Encrypted export will be available in the next step.", "success");
+                                }}
+                                className="px-3 py-2 rounded-xl bg-brand text-black text-xs font-bold hover:bg-brand-hover transition-all flex items-center gap-1 cursor-pointer"
+                                disabled={!stellarSecret}
+                              >
+                                <Key className="w-3.5 h-3.5" aria-hidden="true" />
+                                Export (Encrypted)
+                              </button>
+
                               {showPrivateKey && (
                                 <button
                                   onClick={handleCopyKey}

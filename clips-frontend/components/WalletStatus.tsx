@@ -76,13 +76,13 @@ export default function WalletStatus() {
     setDropdownOpen(false);
   };
 
-  const stellarNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet" ? "mainnet" : "testnet";
+  const stellarNetwork = user?.walletNetwork ?? (process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet" ? "mainnet" : "testnet");
   const stellarExpertAccountUrl = address ? getStellarExpertAccountUrl(address, stellarNetwork) : "#";
   const stellarScanAccountUrl = address ? getStellarScanAccountUrl(address, stellarNetwork) : "#";
 
   if (!isConnected || !address) {
     return (
-      <div 
+      <div
         className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 text-[13px] text-muted-foreground"
         role="status"
         aria-live="polite"
@@ -118,7 +118,7 @@ export default function WalletStatus() {
 
       {/* Dropdown Menu */}
       {dropdownOpen && (
-        <div 
+        <div
           id={dropdownId}
           ref={dropdownRef}
           role="menu"
@@ -199,8 +199,8 @@ export default function WalletStatus() {
           {/* Multi-Wallet Selector (when authenticated) */}
           {user && (
             <div className="px-4 py-3 border-b border-white/5">
-              <WalletSelector 
-                userId={user.id} 
+              <WalletSelector
+                userId={user.id}
                 compact={true}
                 onWalletSelect={() => setDropdownOpen(false)}
               />
