@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jobStore } from "../shared/jobStore";
 import { requireJobOwner } from "../shared/authGuard";
+import type { ApiResponse } from "../../types";
 
 export async function GET(
   request: NextRequest,
@@ -37,12 +38,22 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({
-    progress: job.progress,
-    status: job.status,
-    momentsFound: job.momentsFound,
-    estimatedSecondsRemaining: job.estimatedSecondsRemaining,
-  });
+  const body: ApiResponse<{
+    progress: number;
+    status: "processing" | "complete" | "error";
+    momentsFound: number;
+    estimatedSecondsRemaining: number;
+  }> = {
+    data: {
+      progress: job.progress,
+      status: job.status,
+      momentsFound: job.momentsFound,
+      estimatedSecondsRemaining: job.estimatedSecondsRemaining,
+    },
+    error: null,
+  };
+
+  return NextResponse.json(body);
 }
 
 export async function POST(
@@ -63,5 +74,10 @@ export async function POST(
     estimatedSecondsRemaining: 300,
   });
 
-  return NextResponse.json({ success: true, message: "Job restarted" });
+  const body: ApiResponse<{ success: true; message: string }> = {
+    data: { success: true, message: "Job restarted" },
+    error: null,
+  };
+
+  return NextResponse.json(body);
 }
