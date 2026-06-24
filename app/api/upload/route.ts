@@ -33,12 +33,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { uploadToQuarantine, moveFromQuarantine, deleteFile } from "@/app/lib/cloudStorage";
-import { scanFile, VirusScanError, getScanConfig } from "@/app/lib/virusScan";
-import type { ApiResponse } from "../types";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/auth";
-import { jobStore } from "../jobs/shared/jobStore";
+import { uploadToQuarantine, moveFromQuarantine, deleteFile } from "@/app/lib/cloudStorage";
+import { scanFile, VirusScanError, getScanConfig } from "@/app/lib/virusScan";
+import { checkCsrf } from "@/app/lib/csrf";
+import { jobStore } from "@/app/api/jobs/shared/jobStore";
+import { dispatchJob } from "@/app/lib/aiBackend";
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
 const ALLOWED_TYPES = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
@@ -57,6 +58,9 @@ function validateFile(file: File): string | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = checkCsrf(request);
+    if (csrfError) return csrfError;
+
     const session = await getServerSession(authOptions);
     const userId = (session?.user as { id?: string } | undefined)?.id;
     if (!userId) {
@@ -162,18 +166,39 @@ export async function POST(request: NextRequest) {
     // Return the first jobId as the primary reference (for single-file flows)
     const primaryJobId = results[0].jobId;
 
-    // Tag jobs with userId for ownership checks
-    for (const result of results) {
-      jobStore.set(result.jobId, {
-        id: result.jobId,
-        userId,
-        progress: 0,
-        status: "processing",
-        momentsFound: 0,
-        estimatedSecondsRemaining: 300,
-        createdAt: Date.now(),
-      });
-    }
+    // Persist jobs to the store and dispatch each one to the AI backend.
+    const callbackBase =
+      process.env.NEXTAUTH_URL?.replace(/\/$/, "") ??
+      `${request.nextUrl.protocol}//${request.nextUrl.host}`;
+
+    await Promise.all(
+      results.map(async (result) => {
+        // Register the job in "queued" state. The AI backend transitions it to
+        // "processing" then "complete"/"error" via the callback route.
+        jobStore.set(result.jobId, {
+          id: result.jobId,
+          userId,
+          status: "queued",
+          progress: 0,
+          momentsFound: 0,
+          estimatedSecondsRemaining: 0,
+          createdAt: Date.now(),
+          // Persist enough metadata for job restarts.
+          ...({ objectKey: result.objectKey } as object),
+          ...({ contentType: result.type } as object),
+          ...({ filename: result.name } as object),
+        });
+
+        await dispatchJob({
+          jobId: result.jobId,
+          userId,
+          objectKey: result.objectKey,
+          contentType: result.type,
+          filename: result.name,
+          callbackUrl: `${callbackBase}/api/jobs/${result.jobId}/callback`,
+        });
+      })
+    );
 
     const body: ApiResponse<{
       success: true;
