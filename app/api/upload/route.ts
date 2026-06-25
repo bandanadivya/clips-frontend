@@ -63,14 +63,20 @@ export async function POST(request: NextRequest) {
     const session = await auth();
     const userId = (session?.user as { id?: string } | undefined)?.id;
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const body: ApiResponse<null> = { data: null, error: "Unauthorized" };
+      return NextResponse.json(body, { status: 401 });
     }
 
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
 
     if (!files || files.length === 0) {
-      return NextResponse.json({ error: "No files provided" }, { status: 400 });
+      const body: ApiResponse<null> = {
+        data: null,
+        error: "No files provided",
+        code: "NO_FILES",
+      };
+      return NextResponse.json(body, { status: 400 });
     }
 
     // Validate every file before touching storage
@@ -79,11 +85,14 @@ export async function POST(request: NextRequest) {
       const err = validateFile(file);
       if (err) validationErrors.push(err);
     }
+
     if (validationErrors.length > 0) {
-      return NextResponse.json(
-        { error: validationErrors.join("; ") },
-        { status: 400 }
-      );
+      const body: ApiResponse<null> = {
+        data: null,
+        error: validationErrors.join("; "),
+        code: "VALIDATION_FAILED",
+      };
+      return NextResponse.json(body, { status: 400 });
     }
 
     const scanConfig = getScanConfig();
@@ -96,14 +105,20 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(arrayBuffer);
 
         // Step 1: Upload to quarantine
-        const quarantine = await uploadToQuarantine(buffer, file.name, file.type || "application/octet-stream");
+        const quarantine = await uploadToQuarantine(
+          buffer,
+          file.name,
+          file.type || "application/octet-stream"
+        );
         console.log(`[Upload] File quarantined: ${quarantine.jobId} at ${quarantine.quarantineKey}`);
 
         // Step 2: Scan the file
         let scanResult;
         try {
           scanResult = await scanFile(buffer);
-          console.log(`[Upload] Scan complete for ${quarantine.jobId}: clean=${scanResult.isClean}, provider=${scanResult.provider}`);
+          console.log(
+            `[Upload] Scan complete for ${quarantine.jobId}: clean=${scanResult.isClean}, provider=${scanResult.provider}`
+          );
         } catch (scanErr) {
           // Scan failed or timed out - treat as quarantined (not clean)
           const error = scanErr instanceof VirusScanError ? scanErr : new Error(String(scanErr));
@@ -184,35 +199,55 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({
-      success: true,
-      message: `Successfully uploaded ${files.length} file(s)`,
-      jobId: primaryJobId,
-      files: results,
-    });
+    const body: ApiResponse<{
+      success: true;
+      message: string;
+      jobId: string;
+      files: typeof results;
+    }> = {
+      data: {
+        success: true,
+        message: `Successfully uploaded ${files.length} file(s)`,
+        jobId: primaryJobId,
+        files: results,
+      },
+      error: null,
+    };
+
+    return NextResponse.json(body);
   } catch (error: unknown) {
     // Differentiate configuration errors from runtime errors
-    if (error instanceof Error && error.message.startsWith("Missing required environment variable")) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Missing required environment variable")
+    ) {
       console.error("Upload config error:", error.message);
-      return NextResponse.json(
-        { error: "Cloud storage is not configured. Contact support." },
-        { status: 503 }
-      );
+      const body: ApiResponse<null> = {
+        data: null,
+        error: "Cloud storage is not configured. Contact support.",
+        code: "STORAGE_NOT_CONFIGURED",
+      };
+      return NextResponse.json(body, { status: 503 });
     }
 
     // Virus scan errors
     if (error instanceof Error && error.message.includes("security scan")) {
       console.error("Upload security error:", error.message);
-      return NextResponse.json(
-        { error: "File failed security scan" },
-        { status: 400 }
-      );
+      const body: ApiResponse<null> = {
+        data: null,
+        error: "File failed security scan",
+        code: "SECURITY_SCAN_FAILED",
+      };
+      return NextResponse.json(body, { status: 400 });
     }
 
     console.error("Upload error:", error);
-    return NextResponse.json(
-      { error: "Internal server error during upload" },
-      { status: 500 }
-    );
+    const body: ApiResponse<null> = {
+      data: null,
+      error: "Internal server error during upload",
+      code: "UPLOAD_INTERNAL_ERROR",
+    };
+    return NextResponse.json(body, { status: 500 });
   }
 }
+
