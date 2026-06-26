@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MockApi } from "@/app/lib/mockApi";
 import { Loader2, Link2, User as UserIcon, MonitorPlay, ArrowRight, CheckCircle2, Wallet, Info } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import Navbar from "@/components/Navbar";
@@ -314,10 +313,16 @@ export default function OnboardingPage() {
 
     setLoading(true);
     try {
-      await MockApi.saveOnboarding(user.id, 2, step1Form);
+      const res = await fetch("/api/user/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: 2, data: step1Form }),
+      });
+      if (!res.ok) throw new Error("Failed to save onboarding step 1");
+      const { onboardingStep } = await res.json();
       setUser({ 
         ...user, 
-        onboardingStep: 2, 
+        onboardingStep: onboardingStep ?? 2, 
         name: step1Form.name,
         profile: { ...user.profile, ...step1Form } 
       });
@@ -341,10 +346,16 @@ export default function OnboardingPage() {
 
     setLoading(true);
     try {
-      await MockApi.saveOnboarding(user.id, 3, { ...step2Form, socialsConnected: true });
+      const res = await fetch("/api/user/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: 3, data: { ...step2Form, socialsConnected: true } }),
+      });
+      if (!res.ok) throw new Error("Failed to save onboarding step 2");
+      const { onboardingStep } = await res.json();
       setUser({ 
         ...user, 
-        onboardingStep: 3, 
+        onboardingStep: onboardingStep ?? 3, 
         profile: { ...user.profile, ...step2Form, socialsConnected: true } 
       });
     } catch (err) {
@@ -358,8 +369,14 @@ export default function OnboardingPage() {
     if (!user) return;
     setLoading(true);
     try {
-      await MockApi.saveOnboarding(user.id, 4, { walletAcknowledged: true });
-      setUser({ ...user, onboardingStep: 4, profile: { ...user.profile, walletAcknowledged: true } });
+      const res = await fetch("/api/user/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: 4, data: { walletAcknowledged: true } }),
+      });
+      if (!res.ok) throw new Error("Failed to save onboarding step 3");
+      const { onboardingStep } = await res.json();
+      setUser({ ...user, onboardingStep: onboardingStep ?? 4, profile: { ...user.profile, walletAcknowledged: true } });
       router.push("/dashboard");
     } catch (err) {
       console.error(err);
